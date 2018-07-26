@@ -3,21 +3,21 @@ import codecs
 import math
 import pickle
 import random
-path_eng_name = "./data/English_Cn_Name_Corpus（48W）.txt"  # 国外移民语聊
+path_eng_name = "./data/English_Cn_Name_Corpus（48W）.txt"  # 国外移民语料
 path_cn_name = "./data/Chinese_Names_Corpus（120W）.txt"  # 中文人名语料
-train_path = "./data/trainset_1.txt" # 未添加特征的训练集路径
+train_path = "./data/trainset_1.txt"  # 未添加特征的训练集路径
 test_path = "./data/testset_answer_1.txt" # 未添加特征的测试集路径
 kb = 2  # 边界特征切割值k
 ku = 5  # 用字特征切割值k
-test_output = "data/testset_answer_10" # 添加特征后的测试集输出路径
-train_output = "data/trainset_10" # 添加特征后的测试集输出路径
+test_output = "data/testset_answer_10"  # 添加特征后的测试集输出路径
+train_output = "data/trainset_10"  # 添加特征后的测试集输出路径
 
-border_corpus = "./word2vec/data/train_text/film_train.txt"  # 边界特征训练语聊
+border_corpus = "./word2vec/data/train_text/film_train.txt"  # 边界特征训练语料
 
 def read_name_corpus():
     """
-    读取中英文语聊
-    :return:
+    读取中文名和国外译名语料
+    :return:cn_name,eng_name list[str,str...]
     """
     f = codecs.open(path_cn_name, encoding="utf-8")
     data = f.read()
@@ -31,6 +31,17 @@ def read_name_corpus():
     return cn_name, eng_name
 
 def get_char_dict_list():
+    """
+    获取用字特征字典列表char_dict_list
+    char_dict_list[0]:为中文姓氏用字特征
+    char_dict_list[1]:为中文单名用字特征
+    char_dict_list[2]:为中文双名首字特征
+    char_dict_list[3]:为中文双名尾字特征
+    char_dict_list[4]:为译名首字特征
+    char_dict_list[5]:为译名中字特征
+    char_dict_list[6]:为译名尾字特征
+    :return: char_dict_list list[{},{}...]
+    """
     cn_name, eng_name = read_name_corpus()
     char_dict_list = [{}, {}, {}, {}, {}, {}, {}]
     for name in cn_name:
@@ -89,6 +100,10 @@ def get_char_dict_list():
     return char_dict_list
 
 def get_border_corpus():
+    """
+    读取边界特征训练语料
+    :return: comment_corpus list
+    """
     f = codecs.open(border_corpus, encoding="utf-8")
     rows = f.readlines()
     f.close()
@@ -97,11 +112,15 @@ def get_border_corpus():
     return comment_corpus
 
 def get_trainset_name():
+    """
+    从训练集中读取提取边界特征的种子人名
+    :return: names list[str,str...]
+    """
     f = codecs.open(train_path, encoding="utf-8")
     data = f.read()
     f.close()
     data = data.split("\n")
-    items = [row.split("\t")for row in data]
+    items = [row.split("\t") for row in data]
     names = []
     for i, item in enumerate(items):
         if item.__len__()>1 and item[1][0] == "B":
@@ -119,9 +138,15 @@ def get_trainset_name():
     return names
 
 def save_border_dict_list_pk():
+    """
+    构建边界特征字典列表，并保存到路径"./data/border_dict_list"
+    border_dict_list[0] 上边界特征字典
+    border_dict_list[1] 下边界特征字典
+    :return:
+    """
     comments = get_border_corpus()
     names = get_trainset_name()
-    boder_dict_list = [{}, {}]
+    border_dict_list = [{}, {}]
     comments = comments[:1000000]
     for comment in comments:
         for name in names:
@@ -129,19 +154,19 @@ def save_border_dict_list_pk():
                 index = comment.index(name)
                 if index-1 >= 0:
                     try:
-                        boder_dict_list[0][comment[index-1]] += 1.0
+                        border_dict_list[0][comment[index-1]] += 1.0
                     except:
-                        boder_dict_list[0][comment[index-1]] = 1.0
+                        border_dict_list[0][comment[index-1]] = 1.0
                 end = index+name.__len__()
                 if end < comment.__len__():
                     try:
-                        boder_dict_list[1][comment[end]] += 1.0
+                        border_dict_list[1][comment[end]] += 1.0
                     except:
-                        boder_dict_list[1][comment[index-1]] = 1.0
+                        border_dict_list[1][comment[index-1]] = 1.0
             except:
                 continue
     char_freq = {}
-    chars = list(set(list(boder_dict_list[0].keys())+list(boder_dict_list[1].keys())))
+    chars = list(set(list(border_dict_list[0].keys())+list(border_dict_list[1].keys())))
     for comment in comments:
         for char in chars:
             num = comment.count(char)
@@ -149,18 +174,20 @@ def save_border_dict_list_pk():
                 char_freq[char] += num
             except:
                 char_freq[char] = num
-
     for char in chars:
-        if boder_dict_list[0].has_key(char):
-            boder_dict_list[0][char] = (boder_dict_list[0][char]+1.0)/math.log(char_freq[char]+1.0)
-        if boder_dict_list[1].has_key(char):
-            boder_dict_list[1][char] = (boder_dict_list[1][char] + 1.0)/math.log(char_freq[char] + 1.0)
-    for word in boder_dict_list[1]:
-        print word, boder_dict_list[1][word]
-
-    pickle.dump(boder_dict_list, open("./data/border_dict_list","wb"))
+        if border_dict_list[0].has_key(char):
+            border_dict_list[0][char] = (border_dict_list[0][char]+1.0)/math.log(char_freq[char]+1.0)
+        if border_dict_list[1].has_key(char):
+            border_dict_list[1][char] = (border_dict_list[1][char] + 1.0)/math.log(char_freq[char] + 1.0)
+    for word in border_dict_list[1]:
+        print word, border_dict_list[1][word]
+    pickle.dump(border_dict_list, open("./data/border_dict_list","wb"))
 
 def get_border_dict_list():
+    """
+    读取外存中的边界特征字典列表
+    :return:
+    """
     border_dict_list = pickle.load(open("./data/border_dict_list", "rb"))
     for dict in border_dict_list:
         for word in dict:
@@ -177,6 +204,13 @@ def get_border_dict_list():
     return border_dict_list
 
 def add_feture(dict_list,input,output):
+    """
+    为input，添加dict_list中的特征，并输出至output
+    :param dict_list:
+    :param input:
+    :param output:
+    :return:
+    """
     f = codecs.open(input, encoding="utf-8")
     rows = f.read().split("\n")
     new_rows = []
